@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ricoh</title>
+
+  <style>
+    :root{
+      --ink:#0c2a3a;
+      --muted:#6b7280;
+      --bg:#ffffff;
+      --line:#1f2937;
+      --accent:#d10000;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:#f6f7fb;
+      color:#111827;
+    }
+    .page{
+      max-width: 1220px;
+      margin: 20px auto;
+      padding: 0 14px;
+      display:flex;
+      gap: 18px;
+      align-items:flex-start;
+    }
+
+    /* ====== “folha” da fatura ====== */
+    .sheet{
+      flex: 1;
+      background:#fff;
+      border:1px solid #d1d5db;
+      box-shadow: 0 10px 25px rgba(0,0,0,.06);
+      padding: 18px 18px 14px;
+      min-width: 0;
+    }
+
+    .header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap: 14px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #111827;
+    }
+
+    .brand{
+      font-weight:900;
+      font-size: 26px;
+      color:#4b5563;
+      letter-spacing:.2px;
+    }
+    .brand small{
+      display:block;
+      font-weight:700;
+      font-size: 11px;
+      color:#9ca3af;
+      margin-top:2px;
+    }
+
+    .ricoh{
+      text-align:center;
+      font-weight:900;
+      font-size: 30px;
+      color:#cc0000;
+      line-height: 1;
+    }
+    .ricoh span{
+      display:block;
+      font-weight:700;
+      font-size: 12px;
+      color:#6b7280;
+      margin-top:2px;
+    }
+
+    table{
+      width:100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    th, td{
+      border:1px solid #111827;
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+    th{
+      background:#f3f4f6;
+      text-align:left;
+      font-size: 13px;
+      letter-spacing:.02em;
+    }
+    td.num{ text-align:right; white-space: nowrap; }
+
+    .totals{
+      margin-top: 10px;
+      display:flex;
+      justify-content:flex-end;
+    }
+    .totals table{
+      width: 360px;
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .footer-info{
+      margin-top: 14px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .footer-info .red{
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    /* ====== filtro lateral ====== */
+    .right{
+      width: 340px;
+      background:#fff;
+      border: 3px solid var(--ink);
+      border-radius: 48px;
+      padding: 18px 18px 22px;
+      box-shadow: 0 10px 25px rgba(0,0,0,.06);
+      position: sticky;
+      top: 16px;
+    }
+    .filter-title{
+      color: var(--accent);
+      font-weight: 900;
+      text-align:center;
+      margin: 6px 0 14px;
+      letter-spacing: .1em;
+    }
+    .field{ margin-top: 14px; }
+    label{
+      display:block;
+      margin: 0 0 7px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    input{
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      outline: none;
+      font-size: 14px;
+    }
+    .btn{
+      margin-top: 14px;
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 0;
+      background: var(--ink);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .hint{
+      margin-top: 10px;
+      font-size: 12px;
+      color: #6b7280;
+      text-align:center;
+    }
+
+    @media (max-width: 980px){
+      .page{ flex-direction: column; }
+      .right{ width: 100%; position: static; border-radius: 18px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <div class="sheet">
+      <div class="header">
+        <div class="brand">
+          vendemmia
+          <small>pessoas e negócios conectados.</small>
+        </div>
+
+        <div class="ricoh">
+          RICOH
+          <span>imagine. change.</span>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:45%;">Serviço</th>
+            <th colspan="2" style="width:25%; text-align:center;">Taxa</th>
+            <th style="width:15%; text-align:center;">Quant.</th>
+            <th style="width:15%; text-align:center;">Valor</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in linhas %}
+          <tr>
+            <td>{{ r.servico }}</td>
+
+            <td class="num">
+              {% if r.taxa_unit == "R$" %}{{ r.taxa_unit }}{% endif %}
+              {{ r.taxa }}
+            </td>
+            <td style="text-align:center; white-space:nowrap;">
+              {% if r.taxa_unit and r.taxa_unit != "R$" %}
+                {{ r.taxa_unit }}
+              {% else %}
+                {{ r.qtd_unit }}
+              {% endif %}
+            </td>
+
+            <td class="num">
+              {% if r.qtd is None %}
+                -
+              {% else %}
+                {% if r.qtd_unit == "R$" %}
+                  {{ pico_base_valor_fmt }}
+                {% else %}
+                  {{ r.qtd }}
+                {% endif %}
+              {% endif %}
+            </td>
+
+            <td class="num">
+              {% if r.valor is None %}
+                -
+              {% else %}
+                {{ r.valor|floatformat:2 }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="totals">
+        <table>
+          <tr>
+            <td><b>Subtotal</b></td>
+            <td class="num"><b>{{ subtotal_fmt }}</b></td>
+          </tr>
+          <tr>
+            <td><b>Imposto Sobre Serviço Municipal</b> ({{ iss_percent_fmt }}%)</td>
+            <td class="num"><b>{{ iss_valor_fmt }}</b></td>
+          </tr>
+          <tr>
+            <td><b>Total</b></td>
+            <td class="num"><b>{{ total_fmt }}</b></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="footer-info">
+        <div class="red">Período: {{ periodo_txt }}</div>
+        <div>RICOH BRASIL S.A. (esboço)</div>
+        <div><b>CNPJ:</b> {{ cnpj }}</div>
+
+        {% if pico_dia %}
+          <div style="margin-top:6px;">
+            <b>Pico do período:</b> {{ pico_dia }} | <b>Base:</b> R$ {{ pico_base_valor_fmt }}
+          </div>
+        {% endif %}
+
+        {% if erro_wms %}
+          <div style="margin-top:8px; color:#b91c1c;">
+            <b>Falha ao consultar WMS:</b> {{ erro_wms }}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="filter-title">FILTRO</div>
+
+      <form method="get" autocomplete="off">
+        <div class="field">
+          <label>Data Inicial</label>
+          <input type="date" name="data_inicial" value="{{ data_inicial }}">
+        </div>
+
+        <div class="field">
+          <label>Data Final</label>
+          <input type="date" name="data_final" value="{{ data_final }}">
+        </div>
+
+        <button class="btn" type="submit">Aplicar</button>
+
+        <div class="hint">
+          Nesta tela é fixo para Ricoh (CNPJ {{ cnpj }}).
+        </div>
+      </form>
+    </div>
+
+  </div>
+</body>
+</html>
