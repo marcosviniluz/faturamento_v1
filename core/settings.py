@@ -80,11 +80,11 @@ DATABASES = {
     },
     "wms": {
         "ENGINE": "mysql.connector.django",
-        "NAME": "",
-        "USER": "",
+        "NAME": "prod_vdm_wms",
+        "USER": "prod_vdm_wms_view",
         "PASSWORD": "",  # sua senha
-        "HOST": "",
-        "PORT": "",
+        "HOST": "vdm-analytics-wms.mysql.database.azure.com",
+        "PORT": "3306",
         "OPTIONS": {
             "use_pure": True,          # <<<<<< ESSENCIAL (evita connection_cext)
             "charset": "utf8mb4",

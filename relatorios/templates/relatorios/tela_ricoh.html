@@ -94,7 +94,8 @@
       font-size: 13px;
       letter-spacing:.02em;
     }
-    td.num{ text-align:right; white-space: nowrap; }
+    td.num, th.num{ text-align:right; white-space: nowrap; }
+    th.center, td.center{ text-align:center; white-space: nowrap; }
 
     .totals{
       margin-top: 10px;
@@ -196,10 +197,11 @@
       <table>
         <thead>
           <tr>
-            <th style="width:45%;">Serviço</th>
-            <th colspan="2" style="width:25%; text-align:center;">Taxa</th>
-            <th style="width:15%; text-align:center;">Quant.</th>
-            <th style="width:15%; text-align:center;">Valor</th>
+            <th style="width:46%;">Serviço</th>
+            <th class="num" style="width:16%;">Taxa</th>
+            <th class="center" style="width:10%;">Unid.</th>
+            <th class="num" style="width:14%;">Quant.</th>
+            <th class="num" style="width:14%;">Valor</th>
           </tr>
         </thead>
 
@@ -208,35 +210,39 @@
           <tr>
             <td>{{ r.servico }}</td>
 
+            <!-- Taxa já formatada pela view -->
             <td class="num">
-              {% if r.taxa_unit == "R$" %}{{ r.taxa_unit }}{% endif %}
-              {{ r.taxa }}
-            </td>
-            <td style="text-align:center; white-space:nowrap;">
-              {% if r.taxa_unit and r.taxa_unit != "R$" %}
-                {{ r.taxa_unit }}
+              {% if r.taxa_fmt %}
+                {{ r.taxa_fmt }}
               {% else %}
-                {{ r.qtd_unit }}
+                -
               {% endif %}
             </td>
 
+            <!-- Unidade da taxa (ou unidade da quantidade quando fizer sentido) -->
+            <td class="center">
+              {% if r.tipo == "PERCENTUAL" %}
+                R$
+              {% else %}
+                {{ r.qtd_unit|default:"" }}
+              {% endif %}
+            </td>
+
+            <!-- Quantidade já formatada pela view -->
             <td class="num">
               {% if r.qtd is None %}
                 -
               {% else %}
-                {% if r.qtd_unit == "R$" %}
-                  {{ pico_base_valor_fmt }}
-                {% else %}
-                  {{ r.qtd }}
-                {% endif %}
+                {{ r.qtd_fmt }}
               {% endif %}
             </td>
 
+            <!-- Valor já formatado pela view -->
             <td class="num">
               {% if r.valor is None %}
                 -
               {% else %}
-                {{ r.valor|floatformat:2 }}
+                {{ r.valor_fmt }}
               {% endif %}
             </td>
           </tr>
@@ -295,10 +301,7 @@
         </div>
 
         <button class="btn" type="submit">Aplicar</button>
-
-        <div class="hint">
-          Nesta tela é fixo para Ricoh (CNPJ {{ cnpj }}).
-        </div>
+        
       </form>
     </div>
 

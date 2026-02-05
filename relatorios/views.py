@@ -1,53 +1,66 @@
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from django.shortcuts import render
 import mysql.connector
 
 
-HOST = ""
+HOST = "vdm-analytics-wms.mysql.database.azure.com"
 PORT = 3306
-USER = ""
-PASSWORD = ""  # coloque sua senha aqui
-DB = ""
+USER = "prod_vdm_wms_view"
+PASSWORD = ""
+DB = "prod_vdm_wms"
 
 CNPJ_RICOH = "33597659001521"
-DATE_FIELD = "created_at"  # se um dia quiser trocar para updated_at, altere aqui
+DATE_FIELD = "created_at"
 
-# Locais permitidos (equivalente ao LIKE do complement):
-# PP / BINS / BL
-def local_permitido(local: str) -> bool:
-    if not local:
-        return False
-    u = local.upper()
-    return u.startswith("PP-") or ("BINS" in u) or ("BL" in u)
+LIKE1, LIKE2, LIKE3 = "%PP-%", "%BINS%", "%BL%"
 
-# Regex para extrair do texto s.endereco:
-# Identificação do endereço: PP-20-021-2-01
-# Quantidade disponível: 10
-# Quantidade total: 12
-RE_ENDERECO_FULL = re.compile(
-    r"Identificação do endereço:\s*([A-Z]{2}-\d{2}-\d{3}-\d-\d{2})\s*"
-    r"(?:\r?\n)+Quantidade disponível:\s*([0-9]+(?:[.,][0-9]+)?)\s*"
-    r"(?:\r?\n)+Quantidade total:\s*([0-9]+(?:[.,][0-9]+)?)",
-    re.IGNORECASE,
-)
 
-SQL_STOCK_PERIODO = f"""
+SQL_PICO_VALOR_UNITVALUE_JOIN = f"""
 SELECT
-  s.id AS stock_id,
+  dia,
+  total_unit_value
+FROM (
+  SELECT
+    DATE(aws.{DATE_FIELD}) AS dia,
+    SUM(COALESCE(aws.unit_value, 0)) AS total_unit_value
+  FROM api_wms_stock aws
+  LEFT JOIN api_wms_stock_complement awsc
+    ON awsc.stock_id = aws.id
+  WHERE aws.deleted_at IS NULL
+    AND aws.is_active = 1
+    AND TRIM(aws.document_number) = %s
+    AND aws.{DATE_FIELD} >= %s
+    AND aws.{DATE_FIELD} < %s
+  GROUP BY DATE(aws.{DATE_FIELD})
+) x
+ORDER BY total_unit_value DESC
+LIMIT 1
+"""
+
+SQL_PICO_ARMAZENAGEM_COMPLEMENT = f"""
+SELECT
   DATE(s.{DATE_FIELD}) AS dia,
-  COALESCE(s.unit_value, 0) AS unit_value,
-  COALESCE(s.amount_total, 0) AS amount_total,
-  s.endereco AS endereco_raw
+  COUNT(DISTINCT sc.local_id) AS qtd_pico
 FROM api_wms_stock s
+JOIN api_wms_stock_complement sc ON sc.stock_id = s.id
 WHERE s.deleted_at IS NULL
   AND s.is_active = 1
-  AND DATE(s.{DATE_FIELD}) BETWEEN %s AND %s
   AND TRIM(s.document_number) = %s
-ORDER BY s.id
+  AND s.{DATE_FIELD} >= %s
+  AND s.{DATE_FIELD} < %s
+  AND sc.amount > 0
+  AND (
+        sc.local_id LIKE %s
+     OR sc.local_id LIKE %s
+     OR sc.local_id LIKE %s
+  )
+GROUP BY DATE(s.{DATE_FIELD})
+ORDER BY qtd_pico DESC
+LIMIT 1
 """
 
 
@@ -58,7 +71,7 @@ def _conn_wms():
         user=USER,
         password=PASSWORD,
         database=DB,
-        use_pure=True,            # importante no seu Python 3.14
+        use_pure=True,
         connection_timeout=30,
         read_timeout=600,
         write_timeout=600,
@@ -78,51 +91,14 @@ def d(x: Any) -> Decimal:
         return Decimal("0")
 
 
-def to_decimal_locale(x: Any) -> Decimal:
-    """
-    Converte valores tipo '1.234,56' ou '1234,56' para Decimal.
-    """
-    if x is None:
-        return Decimal("0")
-    if isinstance(x, (int, float, Decimal)):
-        return Decimal(str(x))
-    s = str(x).strip()
-    if not s:
-        return Decimal("0")
-    # remove separador de milhar e troca vírgula por ponto
-    s = s.replace(".", "").replace(",", ".")
-    try:
-        return Decimal(s)
-    except Exception:
-        return Decimal("0")
-
-
-def parse_endereco(endereco: Optional[str]) -> List[Dict[str, Any]]:
-    if not endereco:
-        return []
-    out = []
-    for local, qtd_disp, qtd_total in RE_ENDERECO_FULL.findall(endereco):
-        out.append(
-            {
-                "local": (local or "").upper().strip(),
-                "qtd_total": to_decimal_locale(qtd_total),
-                "qtd_disponivel": to_decimal_locale(qtd_disp),
-            }
-        )
-    return out
-
-
 def br_money(v: Decimal) -> str:
-    # 12.345.678,90
     s = f"{v:,.2f}"
-    s = s.replace(",", "X").replace(".", ",").replace("X", ".")
-    return s
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def br_num(v: Decimal, dec: int = 2) -> str:
     s = f"{{:,.{dec}f}}".format(v)
-    s = s.replace(",", "X").replace(".", ",").replace("X", ".")
-    return s
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def mask_cnpj(cnpj: str) -> str:
@@ -132,99 +108,116 @@ def mask_cnpj(cnpj: str) -> str:
     return f"{c[0:2]}.{c[2:5]}.{c[5:8]}/{c[8:12]}-{c[12:14]}"
 
 
-def calcular_pico_valor_periodo(data_inicial: str, data_final: str) -> tuple[Optional[str], Decimal]:
-    """
-    Retorna (pico_dia, pico_valor):
-    - pico_dia = dia do período com MAIOR valor total de estoque
-    - pico_valor = soma(quantidade * unit_value) nesse dia
+def _safe_ymd(s: str) -> Optional[str]:
+    try:
+        datetime.strptime(s, "%Y-%m-%d")
+        return s
+    except Exception:
+        return None
 
-    Calcula usando APENAS api_wms_stock:
-    - extrai quantidade total do texto do endereco (por local)
-    - filtra locais PP/BINS/BL
-    - fallback: se não parsear, usa amount_total apenas se o texto contiver PP/BINS/BL
-    """
-    totals_por_dia: Dict[str, Decimal] = {}
+
+def _dt_range(data_inicial: str, data_final: str) -> Tuple[datetime, datetime]:
+    di = datetime.strptime(data_inicial, "%Y-%m-%d").date()
+    df = datetime.strptime(data_final, "%Y-%m-%d").date()
+    start_dt = datetime.combine(di, datetime.min.time())
+    end_dt = datetime.combine(df + timedelta(days=1), datetime.min.time())
+    return start_dt, end_dt
+
+
+def calcular_pico_valor_periodo_unitvalue_join(data_inicial: str, data_final: str) -> Tuple[Optional[str], Decimal]:
+    start_dt, end_dt = _dt_range(data_inicial, data_final)
 
     conn = _conn_wms()
     try:
         cur = conn.cursor(dictionary=True)
-        cur.execute(SQL_STOCK_PERIODO, (data_inicial, data_final, CNPJ_RICOH))
-
-        batch_size = 5000
-        while True:
-            rows = cur.fetchmany(batch_size)
-            if not rows:
-                break
-
-            for r in rows:
-                dia = r.get("dia")
-                if dia is None:
-                    continue
-
-                # dia pode vir como date ou string dependendo do connector
-                if hasattr(dia, "strftime"):
-                    dia_key = dia.strftime("%Y-%m-%d")
-                else:
-                    dia_key = str(dia)
-
-                unit_value = d(r.get("unit_value"))
-                end_raw = r.get("endereco_raw") or ""
-                amount_total = d(r.get("amount_total"))
-
-                locais = parse_endereco(end_raw)
-
-                valor_add = Decimal("0")
-                if locais:
-                    # soma apenas locais permitidos
-                    for loc in locais:
-                        if local_permitido(loc["local"]):
-                            valor_add += (d(loc["qtd_total"]) * unit_value)
-                else:
-                    # fallback só se o texto indicar PP/BINS/BL
-                    u = end_raw.upper()
-                    if ("PP-" in u) or ("BINS" in u) or ("BL" in u):
-                        valor_add += (amount_total * unit_value)
-
-                if valor_add != 0:
-                    totals_por_dia[dia_key] = totals_por_dia.get(dia_key, Decimal("0")) + valor_add
-
+        cur.execute(SQL_PICO_VALOR_UNITVALUE_JOIN, (CNPJ_RICOH, start_dt, end_dt))
+        row = cur.fetchone()
         cur.close()
+
+        if not row:
+            return None, Decimal("0")
+
+        dia = row.get("dia")
+        if hasattr(dia, "strftime"):
+            dia_str = dia.strftime("%Y-%m-%d")
+        else:
+            dia_str = str(dia)
+
+        total = d(row.get("total_unit_value"))
+        return dia_str, total
     finally:
         conn.close()
 
-    if not totals_por_dia:
-        return None, Decimal("0")
 
-    pico_dia = max(totals_por_dia, key=lambda k: totals_por_dia[k])
-    pico_valor = totals_por_dia[pico_dia]
-    return pico_dia, pico_valor
+def calcular_pico_armazenagem_complement(data_inicial: str, data_final: str) -> Tuple[Optional[str], Optional[int]]:
+    start_dt, end_dt = _dt_range(data_inicial, data_final)
+
+    conn = _conn_wms()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            SQL_PICO_ARMAZENAGEM_COMPLEMENT,
+            (CNPJ_RICOH, start_dt, end_dt, LIKE1, LIKE2, LIKE3),
+        )
+        row = cur.fetchone()
+        cur.close()
+
+        if not row:
+            return None, None
+
+        dia = row.get("dia")
+        if hasattr(dia, "strftime"):
+            dia_str = dia.strftime("%Y-%m-%d")
+        else:
+            dia_str = str(dia)
+
+        qtd = int(row.get("qtd_pico") or 0)
+        return dia_str, qtd
+    finally:
+        conn.close()
 
 
 def tela_estoque_valor(request):
     hoje = date.today().isoformat()
-    data_inicial = request.GET.get("data_inicial") or hoje
-    data_final = request.GET.get("data_final") or hoje
+
+    data_inicial = _safe_ymd(request.GET.get("data_inicial") or "") or hoje
+    data_final = _safe_ymd(request.GET.get("data_final") or "") or hoje
 
     pico_dia = None
     pico_base_valor = Decimal("0")
-    erro_wms = None
+
+    arm_dia = None
+    arm_qtd = None
+
+    erros: List[str] = []
 
     try:
-        pico_dia, pico_base_valor = calcular_pico_valor_periodo(data_inicial, data_final)
+        pico_dia, pico_base_valor = calcular_pico_valor_periodo_unitvalue_join(data_inicial, data_final)
     except Exception as e:
-        erro_wms = str(e)
+        erros.append(f"Pico valor: {e}")
 
-    # LINHAS DA FATURA (manual por enquanto, só o ad-valorem usa a base do WMS)
+    try:
+        arm_dia, arm_qtd = calcular_pico_armazenagem_complement(data_inicial, data_final)
+    except Exception as e:
+        erros.append(f"Pico armazenagem: {e}")
+
     linhas = [
         {
             "servico": "Ad-valorem (pico)",
-            "taxa": d("0.0731"),      # % (ex.: 0,0731%)
+            "taxa": d("0.0731"),
             "taxa_unit": "%",
-            "qtd": pico_base_valor,   # BASE em R$ (pico no período)
-            "qtd_unit": "R$",
-            "tipo": "PERCENTUAL",     # valor = base * taxa/100
+            "qtd": pico_base_valor,
+            "qtd_unit": "",
+            "tipo": "PERCENTUAL",
         },
-        {"servico": "Armazenagem (pico)", "taxa": d("21.25"), "taxa_unit": "", "qtd": None, "qtd_unit": "plt", "tipo": "MULT"},
+        {
+            "servico": "Armazenagem (pico)",
+            "taxa": d("21.25"),
+            "taxa_unit": "",
+            "qtd": arm_qtd,
+            "qtd_unit": "plt",
+            "tipo": "MULT",
+        },
         {"servico": "Descarga por palete", "taxa": d("9.00"), "taxa_unit": "", "qtd": None, "qtd_unit": "plt", "tipo": "MULT"},
         {"servico": "Carga por NF", "taxa": d("10.63"), "taxa_unit": "", "qtd": None, "qtd_unit": "nf", "tipo": "MULT"},
         {"servico": "Pedidos cancelados - entrada por palete", "taxa": d("9.00"), "taxa_unit": "", "qtd": None, "qtd_unit": "plt", "tipo": "MULT"},
@@ -234,7 +227,6 @@ def tela_estoque_valor(request):
         {"servico": "Hora Extra", "taxa": d("3756.57"), "taxa_unit": "R$", "qtd": None, "qtd_unit": "", "tipo": "MULT"},
     ]
 
-    # calcula valores e subtotal
     subtotal = Decimal("0")
     for ln in linhas:
         qtd = ln["qtd"]
@@ -242,17 +234,25 @@ def tela_estoque_valor(request):
 
         if qtd is None:
             ln["valor"] = None
+            ln["taxa_fmt"] = f"{br_num(d(taxa), 4)}%" if ln["tipo"] == "PERCENTUAL" else br_num(d(taxa), 2)
+            ln["qtd_fmt"] = "-"
+            ln["valor_fmt"] = "-"
             continue
 
         if ln["tipo"] == "PERCENTUAL":
             valor = (d(qtd) * d(taxa)) / Decimal("100")
+            ln["taxa_fmt"] = f"{br_num(d(taxa), 4)}%"
+            ln["qtd_fmt"] = f" {br_money(d(qtd))}"
+            ln["valor_fmt"] = f"R$ {br_money(valor)}"
         else:
             valor = d(qtd) * d(taxa)
+            ln["taxa_fmt"] = br_num(d(taxa), 2)
+            ln["qtd_fmt"] = str(qtd) if isinstance(qtd, int) else br_num(d(qtd), 2)
+            ln["valor_fmt"] = f"R$ {br_money(valor)}"
 
         ln["valor"] = valor
         subtotal += valor
 
-    # ISS (exemplo fixo)
     iss_percent = d("0.98")
     iss_valor = (subtotal * iss_percent) / Decimal("100")
     total_geral = subtotal + iss_valor
@@ -273,14 +273,18 @@ def tela_estoque_valor(request):
         "periodo_txt": periodo_txt,
 
         "pico_dia": pico_dia,
+        "pico_base_valor": pico_base_valor,
         "pico_base_valor_fmt": br_money(pico_base_valor),
+
+        "arm_pico_dia": arm_dia,
+        "arm_pico_qtd": arm_qtd,
 
         "linhas": linhas,
 
-        "subtotal_fmt": br_money(subtotal),
+        "subtotal_fmt": f"R$ {br_money(subtotal)}",
         "iss_percent_fmt": br_num(iss_percent, 2),
-        "iss_valor_fmt": br_money(iss_valor),
-        "total_fmt": br_money(total_geral),
+        "iss_valor_fmt": f"R$ {br_money(iss_valor)}",
+        "total_fmt": f"R$ {br_money(total_geral)}",
 
-        "erro_wms": erro_wms,
+        "erro_wms": " | ".join(erros) if erros else None,
     })
