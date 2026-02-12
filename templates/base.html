@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Faturamento{% endblock %}</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            graphite: '#414042',
+            lilas: '#422c76',
+            magenta: '#ff2f69',
+            offwhite: '#faf9f5',
+          },
+          boxShadow: { soft: '0 12px 30px rgba(65,64,66,.12)' },
+          borderRadius: { xl2: '1.25rem' },
+        }
+      }
+    }
+  </script>
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="min-h-screen bg-offwhite text-graphite">
+  <!-- fundo tech -->
+  <div class="absolute inset-0 -z-10">
+    <div class="absolute -top-24 left-0 h-72 w-72 rounded-full bg-lilas/15 blur-3xl"></div>
+    <div class="absolute -top-24 right-0 h-72 w-72 rounded-full bg-magenta/15 blur-3xl"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-offwhite via-white to-white"></div>
+  </div>
+
+  <div class="min-h-screen flex">
+
+    <!-- SIDEBAR (desktop) -->
+    {% if request.user.is_authenticated %}
+    <aside class="hidden md:flex w-64 flex-col border-r border-graphite/10 bg-white/80 backdrop-blur">
+      <!-- Brand -->
+      <div class="p-4">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-lilas to-magenta shadow-soft"></div>
+          <div>
+            <div class="text-sm font-extrabold tracking-tight">Faturamento</div>
+            <div class="text-xs text-graphite/70">Painel</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Menu -->
+      <nav class="px-3">
+        <div class="text-[11px] font-extrabold text-graphite/60 px-2 mb-2">MENU</div>
+
+        <!-- Dashboard -->
+        <a href="{% url 'dashboard:home' %}"
+           class="flex items-center gap-3 rounded-xl px-3 py-2 border transition
+                  {% if request.path|slice:":11" == '/dashboard/' %}
+                    bg-lilas text-white border-transparent
+                  {% else %}
+                    bg-white border-graphite/10 hover:bg-lilas/10
+                  {% endif %}">
+          <span class="text-lg">📊</span>
+          <span class="text-sm font-extrabold">Dashboard</span>
+        </a>
+
+        <!-- Consultar -->
+        <a href="{% url 'clientes:selecionar' %}"
+           class="mt-2 flex items-center gap-3 rounded-xl px-3 py-2 border transition
+                  {% if request.path|slice:":10" == '/clientes/' %}
+                    bg-lilas text-white border-transparent
+                  {% else %}
+                    bg-white border-graphite/10 hover:bg-lilas/10
+                  {% endif %}">
+          <span class="text-lg">🔎</span>
+          <span class="text-sm font-extrabold">Consultar</span>
+        </a>
+
+        <!-- Relatório -->
+        <a href="{% url 'relatorios:tela_estoque_valor' %}"
+           class="mt-2 flex items-center gap-3 rounded-xl px-3 py-2 border transition
+                  {% if request.path|slice:":8" == '/estoque' %}
+                    bg-lilas text-white border-transparent
+                  {% else %}
+                    bg-white border-graphite/10 hover:bg-lilas/10
+                  {% endif %}">
+          <span class="text-lg">🧾</span>
+          <span class="text-sm font-extrabold">Relatório</span>
+        </a>
+
+        <!-- dica: reforço visual quando não tem conta ativa -->
+        {% if not conta_ativa_global %}
+          <div class="mt-3 rounded-xl border border-magenta/30 bg-magenta/10 p-3 text-xs font-bold text-magenta">
+            Nenhuma conta ativa. Vá em <span class="font-extrabold">Consultar</span> para selecionar.
+          </div>
+        {% endif %}
+      </nav>
+
+      <div class="flex-1"></div>
+
+      <!-- Conta ativa + logout -->
+      <div class="p-4 border-t border-graphite/10">
+        {% if conta_ativa_global %}
+          <div class="rounded-xl border border-graphite/10 bg-graphite/5 p-3">
+            <div class="text-[11px] font-extrabold text-graphite/60">CONTA ATIVA</div>
+            <div class="mt-1 text-xs font-extrabold">
+              {{ conta_ativa_global.cliente.nome }} — {{ conta_ativa_global.apelido }}
+            </div>
+            <div class="text-xs text-graphite/60">{{ conta_ativa_global.cnpj_wms }}</div>
+            <a href="{% url 'clientes:selecionar' %}" class="inline-block mt-2 text-xs font-extrabold text-magenta hover:underline">
+              Trocar conta
+            </a>
+          </div>
+        {% else %}
+          <div class="rounded-xl border border-graphite/10 bg-graphite/5 p-3 text-xs text-graphite/70">
+            Selecione uma conta para consultar relatórios.
+          </div>
+        {% endif %}
+
+        <a href="{% url 'logout' %}"
+           class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-magenta/30 bg-magenta/5 px-4 py-2 text-sm font-bold text-magenta hover:bg-magenta/10">
+          Sair
+        </a>
+      </div>
+    </aside>
+    {% endif %}
+
+    <!-- CONTEÚDO -->
+    <div class="flex-1 flex flex-col">
+
+      <!-- Topbar (fica melhor quando a tela tem ações específicas) -->
+      <header class="mx-auto w-full max-w-6xl px-4 py-4">
+        <div class="rounded-xl2 border border-graphite/10 bg-white/80 p-4 shadow-soft backdrop-blur">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div class="text-sm font-extrabold">{% block subtitle %}{% endblock %}</div>
+              {% if request.user.is_authenticated and conta_ativa_global %}
+                <div class="mt-1 text-xs text-graphite/70 md:hidden">
+                  Ativo: <span class="font-extrabold">{{ conta_ativa_global.cliente.nome }} — {{ conta_ativa_global.apelido }}</span>
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              {% block top_actions %}{% endblock %}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="mx-auto w-full max-w-6xl px-4 pb-24 md:pb-8">
+        {% block content %}{% endblock %}
+      </main>
+
+      <!-- Bottom nav (mobile) -->
+      {% if request.user.is_authenticated %}
+      <nav class="md:hidden fixed bottom-0 left-0 right-0 border-t border-graphite/10 bg-white/90 backdrop-blur">
+        <div class="mx-auto max-w-6xl px-4 py-2 grid grid-cols-3 gap-2 text-center">
+          <a href="{% url 'dashboard:home' %}"
+             class="rounded-xl px-2 py-2 text-xs font-extrabold border
+                    {% if request.path|slice:":11" == '/dashboard/' %} bg-lilas text-white border-transparent
+                    {% else %} border-graphite/10 bg-white {% endif %}">
+            <div class="text-base">📊</div>
+            Dashboard
+          </a>
+
+          <a href="{% url 'clientes:selecionar' %}"
+             class="rounded-xl px-2 py-2 text-xs font-extrabold border
+                    {% if request.path|slice:":10" == '/clientes/' %} bg-lilas text-white border-transparent
+                    {% else %} border-graphite/10 bg-white {% endif %}">
+            <div class="text-base">🔎</div>
+            Consultar
+          </a>
+
+          <a href="{% url 'relatorios:tela_estoque_valor' %}"
+             class="rounded-xl px-2 py-2 text-xs font-extrabold border
+                    {% if request.path|slice:":8" == '/estoque' %} bg-lilas text-white border-transparent
+                    {% else %} border-graphite/10 bg-white {% endif %}">
+            <div class="text-base">🧾</div>
+            Relatório
+          </a>
+        </div>
+      </nav>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

@@ -1,200 +1,258 @@
-<!doctype html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ricoh</title>
+{% extends "base.html" %}
 
-  <style>
-    :root{
-      --ink:#0c2a3a;
-      --muted:#6b7280;
-      --bg:#ffffff;
-      --line:#1f2937;
-      --accent:#d10000;
-    }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background:#f6f7fb;
-      color:#111827;
-    }
-    .page{
-      max-width: 1220px;
-      margin: 20px auto;
-      padding: 0 14px;
-      display:flex;
-      gap: 18px;
-      align-items:flex-start;
-    }
+{% block title %}Relatório{% endblock %}
+{% block subtitle %}Consulta de faturamento/estoque{% endblock %}
 
-    /* ====== “folha” da fatura ====== */
-    .sheet{
-      flex: 1;
-      background:#fff;
-      border:1px solid #d1d5db;
-      box-shadow: 0 10px 25px rgba(0,0,0,.06);
-      padding: 18px 18px 14px;
-      min-width: 0;
-    }
+{% block extra_head %}
+<style>
+  /* ===== Escopo total (não vaza pro resto) ===== */
+  .ricoh-root {
+    --ink: #0c2a3a;
+    --muted: #6b7280;
+    --accent: #d10000;
+    --soft: #f3f4f6;
+    --border: #111827;
+  }
+  .ricoh-root * { box-sizing: border-box; }
 
-    .header{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap: 14px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #111827;
-    }
+  /* ===== Container do relatório (agora "card" compacto) ===== */
+  .ricoh-page {
+    width: 100%;
+    max-width: 980px;              /* <- fica no padrão das outras telas */
+    margin: 0 auto;                /* <- centraliza, não fica esticado */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px; /* coluna do filtro = 300px */
+    gap: 12px;
+    align-items: start;
+  }
 
-    .brand{
-      font-weight:900;
-      font-size: 26px;
-      color:#4b5563;
-      letter-spacing:.2px;
-    }
-    .brand small{
-      display:block;
-      font-weight:700;
-      font-size: 11px;
-      color:#9ca3af;
-      margin-top:2px;
-    }
+  .ricoh-sheet {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, .06);
+    padding: 14px;
+    min-width: 0;
+    overflow-x: auto;             /* evita quebrar se a tabela ficar larga */
+    border-radius: 14px;
+  }
 
-    .ricoh{
-      text-align:center;
-      font-weight:900;
-      font-size: 30px;
-      color:#cc0000;
-      line-height: 1;
-    }
-    .ricoh span{
-      display:block;
-      font-weight:700;
-      font-size: 12px;
-      color:#6b7280;
-      margin-top:2px;
-    }
+  /* ===== Header ===== */
+  .ricoh-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+  }
 
-    table{
-      width:100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 14px;
-    }
-    th, td{
-      border:1px solid #111827;
-      padding: 6px 8px;
-      vertical-align: middle;
-    }
-    th{
-      background:#f3f4f6;
-      text-align:left;
-      font-size: 13px;
-      letter-spacing:.02em;
-    }
-    td.num, th.num{ text-align:right; white-space: nowrap; }
-    th.center, td.center{ text-align:center; white-space: nowrap; }
+  .ricoh-brand {
+    font-weight: 900;
+    font-size: 18px;
+    color: #4b5563;
+    letter-spacing: .2px;
+    line-height: 1.1;
+  }
+  .ricoh-brand small {
+    display: block;
+    font-weight: 700;
+    font-size: 10px;
+    color: #9ca3af;
+    margin-top: 4px;
+  }
 
-    .totals{
-      margin-top: 10px;
-      display:flex;
-      justify-content:flex-end;
-    }
-    .totals table{
-      width: 360px;
-      margin: 0;
-      font-size: 14px;
-    }
+  .ricoh-title {
+    text-align: right;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .ricoh-title span {
+    display: block;
+    font-weight: 700;
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 3px;
+  }
 
-    .footer-info{
-      margin-top: 14px;
-      font-size: 13px;
-      line-height: 1.35;
-    }
-    .footer-info .red{
-      color: var(--accent);
-      font-weight: 900;
-    }
+  /* ===== Tabela ===== */
+  .ricoh-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 13px;
+  }
+  .ricoh-table th,
+  .ricoh-table td {
+    border: 1px solid var(--border);
+    padding: 6px 7px;
+    vertical-align: middle;
+  }
+  .ricoh-table th {
+    background: var(--soft);
+    text-align: left;
+    font-size: 12px;
+    letter-spacing: .02em;
+    white-space: nowrap;
+  }
+  .num { text-align: right; white-space: nowrap; }
+  .center { text-align: center; white-space: nowrap; }
 
-    /* ====== filtro lateral ====== */
-    .right{
-      width: 340px;
-      background:#fff;
-      border: 3px solid var(--ink);
-      border-radius: 48px;
-      padding: 18px 18px 22px;
-      box-shadow: 0 10px 25px rgba(0,0,0,.06);
-      position: sticky;
-      top: 16px;
-    }
-    .filter-title{
-      color: var(--accent);
-      font-weight: 900;
-      text-align:center;
-      margin: 6px 0 14px;
-      letter-spacing: .1em;
-    }
-    .field{ margin-top: 14px; }
-    label{
-      display:block;
-      margin: 0 0 7px;
-      font-weight: 800;
-      font-size: 13px;
-    }
-    input{
-      width: 100%;
-      padding: 10px 12px;
-      border: 2px solid var(--ink);
-      border-radius: 10px;
-      outline: none;
-      font-size: 14px;
-    }
-    .btn{
-      margin-top: 14px;
-      width: 100%;
-      padding: 11px 12px;
-      border-radius: 12px;
-      border: 0;
-      background: var(--ink);
-      color: #fff;
-      font-weight: 800;
-      cursor: pointer;
-      font-size: 14px;
-    }
+  /* ===== Totais ===== */
+  .totals-wrap {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .totals-table {
+    width: 340px;
+    margin: 0;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .totals-table th,
+  .totals-table td {
+    border: 1px solid var(--border);
+    padding: 7px 9px;
+  }
+  .totals-table th {
+    background: var(--soft);
+    font-weight: 900;
+  }
+  .totals-table .label { font-weight: 900; }
+  .totals-table .muted {
+    color: var(--muted);
+    font-weight: 700;
+    margin-left: 6px;
+    font-size: 11px;
+  }
+  .totals-table .total-row td {
+    background: var(--border);
+    color: #fff;
+    font-weight: 900;
+  }
 
-    .hint{
-      margin-top: 10px;
-      font-size: 12px;
-      color: #6b7280;
-      text-align:center;
-    }
+  /* ===== Rodapé info ===== */
+  .footer-info {
+    margin-top: 12px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .footer-info .red {
+    color: var(--accent);
+    font-weight: 900;
+  }
 
-    @media (max-width: 980px){
-      .page{ flex-direction: column; }
-      .right{ width: 100%; position: static; border-radius: 18px; }
-    }
-  </style>
-</head>
+  /* ===== Painel lateral (filtro) ===== */
+  .ricoh-right {
+    background: #fff;
+    border: 2px solid var(--ink);
+    border-radius: 18px;
+    padding: 12px 12px 14px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, .06);
+    position: sticky;
+    top: 12px;
+    width: 100%;                 /* <- IMPORTANTÍSSIMO: não usar 200px */
+  }
 
-<body>
-  <div class="page">
+  .filter-title {
+    color: var(--accent);
+    font-weight: 900;
+    text-align: center;
+    margin: 4px 0 10px;
+    letter-spacing: .12em;
+    font-size: 12px;
+  }
 
-    <div class="sheet">
-      <div class="header">
-        <div class="brand">
+  .field { margin-top: 10px; }
+  .ricoh-right label {
+    display: block;
+    margin: 0 0 6px;
+    font-weight: 800;
+    font-size: 12px;
+  }
+  .ricoh-right input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    outline: none;
+    font-size: 13px;
+  }
+
+  .actions {
+    margin-top: 12px;
+    display: grid;
+    gap: 9px;
+  }
+  .btn {
+    width: 100%;
+    padding: 10px 10px;
+    border-radius: 12px;
+    border: 0;
+    font-weight: 900;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    user-select: none;
+    transition: transform .08s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+
+  .btn.primary {
+    background: var(--ink);
+    color: #fff;
+    box-shadow: 0 10px 18px rgba(12, 42, 58, .18);
+  }
+  .btn.primary:hover { box-shadow: 0 14px 22px rgba(12, 42, 58, .24); }
+
+  .btn.export {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    color: var(--ink);
+    border: 2px solid rgba(12, 42, 58, .22);
+    box-shadow: 0 10px 18px rgba(17, 24, 39, .08);
+  }
+  .btn.export:hover {
+    border-color: rgba(12, 42, 58, .38);
+    box-shadow: 0 14px 22px rgba(17, 24, 39, .12);
+  }
+
+  .icon { width: 16px; height: 16px; display: inline-block; }
+  .hint { margin-top: 9px; font-size: 11px; color: #6b7280; text-align: center; }
+
+  /* ===== Responsivo ===== */
+  @media (max-width: 980px) {
+    .ricoh-page { grid-template-columns: 1fr; max-width: 100%; }
+    .ricoh-right { position: static; }
+    .totals-wrap { justify-content: stretch; }
+    .totals-table { width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ricoh-root">
+  <div class="ricoh-page">
+
+    <div class="ricoh-sheet">
+      <div class="ricoh-header">
+        <div class="ricoh-brand">
           vendemmia
           <small>pessoas e negócios conectados.</small>
         </div>
 
-        <div class="ricoh">
+        <!-- AVISO: ainda está “RICOH” hardcoded -->
+        <div class="ricoh-title">
           RICOH
           <span>imagine. change.</span>
         </div>
       </div>
 
-      <table>
+      <table class="ricoh-table">
         <thead>
           <tr>
             <th style="width:46%;">Serviço</th>
@@ -210,60 +268,47 @@
           <tr>
             <td>{{ r.servico }}</td>
 
-            <!-- Taxa já formatada pela view -->
             <td class="num">
-              {% if r.taxa_fmt %}
-                {{ r.taxa_fmt }}
-              {% else %}
-                -
-              {% endif %}
+              {% if r.taxa_fmt %}{{ r.taxa_fmt }}{% else %}-{% endif %}
             </td>
 
-            <!-- Unidade da taxa (ou unidade da quantidade quando fizer sentido) -->
             <td class="center">
-              {% if r.tipo == "PERCENTUAL" %}
-                R$
-              {% else %}
-                {{ r.qtd_unit|default:"" }}
-              {% endif %}
+              {% if r.tipo == "PERCENTUAL" %}R${% else %}{{ r.qtd_unit|default:"" }}{% endif %}
             </td>
 
-            <!-- Quantidade já formatada pela view -->
             <td class="num">
-              {% if r.qtd is None %}
-                -
-              {% else %}
-                {{ r.qtd_fmt }}
-              {% endif %}
+              {% if r.qtd is None %}-{% else %}{{ r.qtd_fmt }}{% endif %}
             </td>
 
-            <!-- Valor já formatado pela view -->
             <td class="num">
-              {% if r.valor is None %}
-                -
-              {% else %}
-                {{ r.valor_fmt }}
-              {% endif %}
+              {% if r.valor is None %}-{% else %}{{ r.valor_fmt }}{% endif %}
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
 
-      <div class="totals">
-        <table>
-          <tr>
-            <td><b>Subtotal</b></td>
-            <td class="num"><b>{{ subtotal_fmt }}</b></td>
-          </tr>
-          <tr>
-            <td><b>Imposto Sobre Serviço Municipal</b> ({{ iss_percent_fmt }}%)</td>
-            <td class="num"><b>{{ iss_valor_fmt }}</b></td>
-          </tr>
-          <tr>
-            <td><b>Total</b></td>
-            <td class="num"><b>{{ total_fmt }}</b></td>
-          </tr>
+      <div class="totals-wrap">
+        <table class="totals-table">
+          <thead>
+            <tr><th colspan="2">Resumo</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="label">Subtotal</td>
+              <td class="num"><b>{{ subtotal_fmt }}</b></td>
+            </tr>
+            <tr>
+              <td class="label">
+                ISS <span class="muted">({{ iss_percent_fmt }}%)</span>
+              </td>
+              <td class="num"><b>{{ iss_valor_fmt }}</b></td>
+            </tr>
+            <tr class="total-row">
+              <td class="label">Total</td>
+              <td class="num"><b>{{ total_fmt }}</b></td>
+            </tr>
+          </tbody>
         </table>
       </div>
 
@@ -273,20 +318,20 @@
         <div><b>CNPJ:</b> {{ cnpj }}</div>
 
         {% if pico_dia %}
-          <div style="margin-top:6px;">
-            <b>Pico do período:</b> {{ pico_dia }} | <b>Base:</b> R$ {{ pico_base_valor_fmt }}
-          </div>
+        <div style="margin-top:6px;">
+          <b>Pico do período:</b> {{ pico_dia }} | <b>Base:</b> R$ {{ pico_base_valor_fmt }}
+        </div>
         {% endif %}
 
         {% if erro_wms %}
-          <div style="margin-top:8px; color:#b91c1c;">
-            <b>Falha ao consultar WMS:</b> {{ erro_wms }}
-          </div>
+        <div style="margin-top:8px; color:#b91c1c;">
+          <b>Falha ao consultar WMS:</b> {{ erro_wms }}
+        </div>
         {% endif %}
       </div>
     </div>
 
-    <div class="right">
+    <div class="ricoh-right">
       <div class="filter-title">FILTRO</div>
 
       <form method="get" autocomplete="off">
@@ -300,11 +345,34 @@
           <input type="date" name="data_final" value="{{ data_final }}">
         </div>
 
-        <button class="btn" type="submit">Aplicar</button>
-        
+        <div class="actions">
+          <button class="btn primary" type="submit">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </span>
+            Aplicar
+          </button>
+
+          <button class="btn export" type="submit" name="export" value="1">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3v10m0 0l3-3m-3 3l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M5 14v5h14v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </span>
+            Baixar Excel
+          </button>
+        </div>
+
+        <div class="hint">
+          Exporta a visão do período selecionado.
+        </div>
       </form>
     </div>
 
   </div>
-</body>
-</html>
+</div>
+{% endblock %}

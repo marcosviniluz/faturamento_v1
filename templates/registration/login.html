@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+{% block subtitle %}Entre para acessar o faturamento.{% endblock %}
+
+{% block top_actions %}
+  <!-- sem ações no login -->
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-md rounded-xl2 border border-graphite/10 bg-white/85 p-6 shadow-soft backdrop-blur">
+    <h2 class="text-base font-extrabold">Entrar</h2>
+    <p class="mt-1 text-sm text-graphite/70">Use seu usuário e senha.</p>
+
+    {% if form.errors %}
+      <div class="mt-4 rounded-xl border border-magenta/30 bg-magenta/10 p-3 text-sm font-bold text-magenta">
+        Usuário ou senha inválidos.
+      </div>
+    {% endif %}
+
+    <form method="post" class="mt-4 space-y-3">
+      {% csrf_token %}
+
+      <!-- Render simples -->
+      <div class="space-y-2">
+        {{ form.as_p }}
+      </div>
+
+      <button type="submit"
+        class="w-full rounded-xl bg-gradient-to-r from-lilas to-magenta px-4 py-2 text-sm font-extrabold text-white shadow-soft hover:opacity-95">
+        Entrar
+      </button>
+    </form>
+  </div>
+{% endblock %}

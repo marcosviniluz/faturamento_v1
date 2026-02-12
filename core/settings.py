@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'relatorios',
+    'clientes',
+    'dashboard',
 ]
 
 MIDDLEWARE = [
@@ -48,6 +50,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "core.middleware.RequireContaAtivaMiddleware",
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -55,13 +58,14 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                "core.context_processors.conta_ativa",
             ],
         },
     },
@@ -78,15 +82,17 @@ DATABASES = {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
     },
+
+    # Banco WMS (NÃO hardcode senha)
     "wms": {
         "ENGINE": "mysql.connector.django",
-        "NAME": "prod_vdm_wms",
-        "USER": "prod_vdm_wms_view",
-        "PASSWORD": "",  # sua senha
-        "HOST": "vdm-analytics-wms.mysql.database.azure.com",
-        "PORT": "3306",
+        "NAME": os.getenv("WMS_DB", "prod_vdm_wms"),
+        "USER": os.getenv("WMS_USER", "prod_vdm_wms_view"),
+        "PASSWORD": os.getenv("WMS_PASSWORD", ""),
+        "HOST": os.getenv("WMS_HOST", "vdm-analytics-wms.mysql.database.azure.com"),
+        "PORT": os.getenv("WMS_PORT", "3306"),
         "OPTIONS": {
-            "use_pure": True,          # <<<<<< ESSENCIAL (evita connection_cext)
+            "use_pure": True,          # evita connection_cext
             "charset": "utf8mb4",
             "connection_timeout": 30,
             "read_timeout": 600,
@@ -137,3 +143,10 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "/dashboard/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+

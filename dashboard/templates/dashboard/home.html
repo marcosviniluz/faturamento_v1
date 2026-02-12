@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block subtitle %}Visão geral do faturamento/estoque.{% endblock %}
+
+{% block content %}
+  <div class="grid gap-4 md:grid-cols-4">
+    <div class="rounded-xl2 border border-graphite/10 bg-white/85 p-4 shadow-soft backdrop-blur">
+      <div class="text-xs text-graphite/70">Empresas/Contas</div>
+      <div class="mt-1 text-2xl font-extrabold">36</div>
+      <div class="mt-1 text-xs text-graphite/60">placeholder</div>
+    </div>
+
+    <div class="rounded-xl2 border border-graphite/10 bg-white/85 p-4 shadow-soft backdrop-blur">
+      <div class="text-xs text-graphite/70">Status</div>
+      <div class="mt-1 text-2xl font-extrabold text-lilas">OK</div>
+      <div class="mt-1 text-xs text-graphite/60">placeholder</div>
+    </div>
+
+    <div class="rounded-xl2 border border-graphite/10 bg-white/85 p-4 shadow-soft backdrop-blur">
+      <div class="text-xs text-graphite/70">Valor Total (R$)</div>
+      <div class="mt-1 text-2xl font-extrabold">-</div>
+      <div class="mt-1 text-xs text-graphite/60">placeholder</div>
+    </div>
+
+    <div class="rounded-xl2 border border-graphite/10 bg-white/85 p-4 shadow-soft backdrop-blur">
+      <div class="text-xs text-graphite/70">Última Atualização</div>
+      <div class="mt-1 text-2xl font-extrabold">-</div>
+      <div class="mt-1 text-xs text-graphite/60">placeholder</div>
+    </div>
+  </div>
+
+  <div class="mt-4 rounded-xl2 border border-graphite/10 bg-white/85 p-4 shadow-soft backdrop-blur">
+    <h2 class="text-sm font-extrabold">Dashboard (em construção)</h2>
+    <p class="mt-1 text-sm text-graphite/70">
+      Aqui vão entrar seus 3–4 gráficos e status por empresa.
+    </p>
+  </div>
+{% endblock %}

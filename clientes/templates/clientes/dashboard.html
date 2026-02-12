@@ -1,0 +1,13 @@
+<h2>Dashboard da Conta Ativa</h2>
+
+<p><b>Cliente:</b> {{ conta.cliente.nome }}</p>
+<p><b>Unidade:</b> {{ conta.apelido }}</p>
+<p><b>CNPJ:</b> {{ conta.cnpj }}</p>
+
+<hr>
+
+<p>Agora sim você está dentro da conta selecionada ✅</p>
+
+<a href="{% url 'selecionar_cliente_conta' %}">
+  Trocar de empresa
+</a>

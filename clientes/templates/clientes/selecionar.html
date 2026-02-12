@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Consultar{% endblock %}
+{% block subtitle %}Escolha a empresa e o CNPJ para consultar o faturamento.{% endblock %}
+
+{% block top_actions %}
+  <a href="{% url 'dashboard:home' %}"
+     class="inline-flex items-center gap-2 rounded-xl border border-graphite/10 bg-white px-4 py-2 text-sm font-bold hover:bg-lilas/5">
+    Voltar ao Dashboard
+  </a>
+{% endblock %}
+
+{% block content %}
+  <section class="grid gap-4 md:grid-cols-2" style="min-height: calc(100vh - 180px);">
+
+    <!-- CLIENTES -->
+    <div class="rounded-xl2 border border-graphite/10 bg-white/85 shadow-soft backdrop-blur flex flex-col overflow-hidden">
+      <div class="sticky top-0 z-10 border-b border-graphite/10 bg-white/90 p-4 backdrop-blur">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-extrabold">Clientes</h2>
+            <p class="mt-1 text-xs text-graphite/70">Busque e selecione um cliente.</p>
+          </div>
+          <span class="rounded-full border border-graphite/10 bg-graphite/5 px-2 py-1 text-xs font-extrabold">
+            {{ clientes|length }}
+          </span>
+        </div>
+
+        <div class="mt-3">
+          <input id="clientSearch" type="text" placeholder="Buscar cliente..."
+                 class="w-full rounded-xl border border-graphite/10 bg-white px-3 py-2 text-sm
+                        outline-none focus:border-lilas/40 focus:ring-2 focus:ring-lilas/15" />
+        </div>
+      </div>
+
+      <div class="p-3 overflow-y-auto" style="max-height: calc(100vh - 310px);">
+        <div id="clientList" class="space-y-2">
+          {% for c in clientes %}
+            <a href="?cliente={{ c.slug }}"
+               data-name="{{ c.nome|lower }} {{ c.slug|lower }}"
+               class="client-item flex items-center justify-between rounded-xl border px-3 py-3 transition
+                      {% if cliente_selecionado and c.id == cliente_selecionado.id %}
+                        border-magenta/30 bg-magenta/5
+                      {% else %}
+                        border-graphite/10 bg-white hover:bg-lilas/5 hover:border-lilas/20
+                      {% endif %}">
+              <div class="min-w-0">
+                <div class="truncate text-sm font-extrabold">{{ c.nome }}</div>
+                <div class="text-xs text-graphite/70">slug: {{ c.slug }}</div>
+              </div>
+
+              {% if cliente_selecionado and c.id == cliente_selecionado.id %}
+                <span class="rounded-full border border-magenta/30 bg-magenta/10 px-2 py-1 text-[11px] font-extrabold text-magenta">
+                  selecionado
+                </span>
+              {% endif %}
+            </a>
+          {% empty %}
+            <div class="rounded-xl border border-graphite/10 bg-graphite/5 p-4 text-sm text-graphite/70">
+              Sem clientes ativos.
+            </div>
+          {% endfor %}
+        </div>
+
+        <div id="clientEmpty" class="hidden mt-3 rounded-xl border border-graphite/10 bg-graphite/5 p-4 text-sm text-graphite/70">
+          Nenhum cliente encontrado.
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTAS -->
+    <div class="rounded-xl2 border border-graphite/10 bg-white/85 shadow-soft backdrop-blur flex flex-col overflow-hidden">
+      <div class="sticky top-0 z-10 border-b border-graphite/10 bg-white/90 p-4 backdrop-blur">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-extrabold">
+              Contas (CNPJ)
+              {% if cliente_selecionado %}• {{ cliente_selecionado.nome }}{% endif %}
+            </h2>
+            <p class="mt-1 text-xs text-graphite/70">
+              {% if conta_ativa %}
+                Ativa agora: <span class="font-extrabold">{{ conta_ativa.apelido }}</span> ({{ conta_ativa.cnpj_wms }})
+              {% else %}
+                Nenhuma conta ativa.
+              {% endif %}
+            </p>
+          </div>
+
+          <span class="rounded-full border border-graphite/10 bg-graphite/5 px-2 py-1 text-xs font-extrabold">
+            {{ contas|length }}
+          </span>
+        </div>
+
+        <div class="mt-3">
+          <input id="accountSearch" type="text" placeholder="Buscar conta (apelido, cnpj)..."
+                 class="w-full rounded-xl border border-graphite/10 bg-white px-3 py-2 text-sm
+                        outline-none focus:border-lilas/40 focus:ring-2 focus:ring-lilas/15" />
+        </div>
+      </div>
+
+      {% if cliente_selecionado %}
+        {% url 'relatorios:tela_estoque_valor' as relatorio_url %}
+
+        <div class="p-3 overflow-y-auto" style="max-height: calc(100vh - 310px);">
+          <div id="accountList" class="space-y-2">
+            {% for conta in contas %}
+              <div class="account-item flex items-center justify-between gap-3 rounded-xl border border-graphite/10 bg-white px-3 py-3 hover:border-lilas/20 hover:bg-lilas/5"
+                   data-name="{{ conta.apelido|lower }} {{ conta.cnpj_wms|lower }} {{ conta.cnpj|lower }}">
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-extrabold">{{ conta.apelido }}</div>
+                  <div class="text-xs text-graphite/70">
+                    CNPJ WMS: {{ conta.cnpj_wms }} • CNPJ: {{ conta.cnpj }}
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  {% if conta_ativa and conta.id == conta_ativa.id %}
+                    <span class="rounded-full border border-magenta/30 bg-magenta/10 px-2 py-1 text-[11px] font-extrabold text-magenta">
+                      ativa
+                    </span>
+                  {% endif %}
+
+                  <a href="{% url 'clientes:ativar_conta' conta.slug %}?cliente={{ cliente_selecionado.slug }}&next={{ relatorio_url|urlencode }}"
+                     class="inline-flex items-center gap-2 rounded-xl border border-lilas/25 bg-lilas/10 px-3 py-2 text-xs font-extrabold text-lilas hover:bg-lilas/15">
+                    Ativar <span aria-hidden="true">→</span>
+                  </a>
+                </div>
+              </div>
+            {% empty %}
+              <div class="rounded-xl border border-graphite/10 bg-graphite/5 p-4 text-sm text-graphite/70">
+                Sem contas ativas para este cliente.
+              </div>
+            {% endfor %}
+          </div>
+
+          <div id="accountEmpty" class="hidden mt-3 rounded-xl border border-graphite/10 bg-graphite/5 p-4 text-sm text-graphite/70">
+            Nenhuma conta encontrada.
+          </div>
+        </div>
+      {% else %}
+        <div class="p-4 text-sm text-graphite/70">
+          Selecione um cliente à esquerda.
+        </div>
+      {% endif %}
+    </div>
+
+  </section>
+
+  <script>
+    function setupFilter(inputId, listSelector, itemSelector, emptyId) {
+      const input = document.getElementById(inputId);
+      const list = document.querySelector(listSelector);
+      const empty = document.getElementById(emptyId);
+      if (!input || !list) return;
+
+      input.addEventListener('input', () => {
+        const q = (input.value || '').trim().toLowerCase();
+        let visible = 0;
+
+        list.querySelectorAll(itemSelector).forEach(el => {
+          const hay = (el.getAttribute('data-name') || '').toLowerCase();
+          const ok = !q || hay.includes(q);
+          el.style.display = ok ? '' : 'none';
+          if (ok) visible++;
+        });
+
+        if (empty) empty.classList.toggle('hidden', visible !== 0);
+      });
+    }
+
+    setupFilter('clientSearch', '#clientList', '.client-item', 'clientEmpty');
+    setupFilter('accountSearch', '#accountList', '.account-item', 'accountEmpty');
+  </script>
+{% endblock %}

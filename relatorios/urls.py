@@ -1,6 +1,8 @@
 from django.urls import path
-from .views import tela_estoque_valor
+from . import views
+
+app_name = "relatorios"
 
 urlpatterns = [
-    path("ricoh/", tela_estoque_valor, name="tela_estoque_valor"),
+    path("", views.tela_estoque_valor, name="tela_estoque_valor"),
 ]
