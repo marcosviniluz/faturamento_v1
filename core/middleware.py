@@ -11,7 +11,7 @@ class RequireContaAtivaMiddleware:
 
     def __call__(self, request):
         # Só aplica para área de relatórios
-        if request.path.startswith("/estoque/"):
+        if request.path.startswith("/estoque/") or request.path.startswith("/apontamentos/"):
             # Se não está logado, deixa o @login_required cuidar disso
             if request.user.is_authenticated:
                 if not request.session.get("conta_id"):

@@ -56,7 +56,7 @@
         <!-- Dashboard -->
         <a href="{% url 'dashboard:home' %}"
            class="flex items-center gap-3 rounded-xl px-3 py-2 border transition
-                  {% if request.path|slice:":11" == '/dashboard/' %}
+                  {% if request.path|slice:':11' == '/dashboard/' %}
                     bg-lilas text-white border-transparent
                   {% else %}
                     bg-white border-graphite/10 hover:bg-lilas/10
@@ -68,7 +68,7 @@
         <!-- Consultar -->
         <a href="{% url 'clientes:selecionar' %}"
            class="mt-2 flex items-center gap-3 rounded-xl px-3 py-2 border transition
-                  {% if request.path|slice:":10" == '/clientes/' %}
+                  {% if request.path|slice:':10' == '/clientes/' %}
                     bg-lilas text-white border-transparent
                   {% else %}
                     bg-white border-graphite/10 hover:bg-lilas/10
@@ -80,13 +80,25 @@
         <!-- Relatório -->
         <a href="{% url 'relatorios:tela_estoque_valor' %}"
            class="mt-2 flex items-center gap-3 rounded-xl px-3 py-2 border transition
-                  {% if request.path|slice:":8" == '/estoque' %}
+                  {% if request.path|slice:':8' == '/estoque' %}
                     bg-lilas text-white border-transparent
                   {% else %}
                     bg-white border-graphite/10 hover:bg-lilas/10
                   {% endif %}">
           <span class="text-lg">🧾</span>
           <span class="text-sm font-extrabold">Relatório</span>
+        </a>
+
+        <!-- Apontamento Diário -->
+        <a href="{% url 'apontamentos:diario_hoje' %}"
+           class="mt-2 flex items-center gap-3 rounded-xl px-3 py-2 border transition
+                  {% if request.path|slice:':13' == '/apontamentos/' %}
+                    bg-lilas text-white border-transparent
+                  {% else %}
+                    bg-white border-graphite/10 hover:bg-lilas/10
+                  {% endif %}">
+          <span class="text-lg">📝</span>
+          <span class="text-sm font-extrabold">Apontamentos</span>
         </a>
 
         <!-- dica: reforço visual quando não tem conta ativa -->
@@ -129,7 +141,7 @@
     <!-- CONTEÚDO -->
     <div class="flex-1 flex flex-col">
 
-      <!-- Topbar (fica melhor quando a tela tem ações específicas) -->
+      <!-- Topbar -->
       <header class="mx-auto w-full max-w-6xl px-4 py-4">
         <div class="rounded-xl2 border border-graphite/10 bg-white/80 p-4 shadow-soft backdrop-blur">
           <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -156,10 +168,10 @@
       <!-- Bottom nav (mobile) -->
       {% if request.user.is_authenticated %}
       <nav class="md:hidden fixed bottom-0 left-0 right-0 border-t border-graphite/10 bg-white/90 backdrop-blur">
-        <div class="mx-auto max-w-6xl px-4 py-2 grid grid-cols-3 gap-2 text-center">
+        <div class="mx-auto max-w-6xl px-4 py-2 grid grid-cols-4 gap-2 text-center">
           <a href="{% url 'dashboard:home' %}"
              class="rounded-xl px-2 py-2 text-xs font-extrabold border
-                    {% if request.path|slice:":11" == '/dashboard/' %} bg-lilas text-white border-transparent
+                    {% if request.path|slice:':11' == '/dashboard/' %} bg-lilas text-white border-transparent
                     {% else %} border-graphite/10 bg-white {% endif %}">
             <div class="text-base">📊</div>
             Dashboard
@@ -167,7 +179,7 @@
 
           <a href="{% url 'clientes:selecionar' %}"
              class="rounded-xl px-2 py-2 text-xs font-extrabold border
-                    {% if request.path|slice:":10" == '/clientes/' %} bg-lilas text-white border-transparent
+                    {% if request.path|slice:':10' == '/clientes/' %} bg-lilas text-white border-transparent
                     {% else %} border-graphite/10 bg-white {% endif %}">
             <div class="text-base">🔎</div>
             Consultar
@@ -175,10 +187,18 @@
 
           <a href="{% url 'relatorios:tela_estoque_valor' %}"
              class="rounded-xl px-2 py-2 text-xs font-extrabold border
-                    {% if request.path|slice:":8" == '/estoque' %} bg-lilas text-white border-transparent
+                    {% if request.path|slice:':8' == '/estoque' %} bg-lilas text-white border-transparent
                     {% else %} border-graphite/10 bg-white {% endif %}">
             <div class="text-base">🧾</div>
             Relatório
+          </a>
+
+          <a href="{% url 'apontamentos:diario_hoje' %}"
+             class="rounded-xl px-2 py-2 text-xs font-extrabold border
+                    {% if request.path|slice:':13' == '/apontamentos/' %} bg-lilas text-white border-transparent
+                    {% else %} border-graphite/10 bg-white {% endif %}">
+            <div class="text-base">📝</div>
+            Apont.
           </a>
         </div>
       </nav>

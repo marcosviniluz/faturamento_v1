@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block subtitle %}Apontamento - {{ data_ref|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6 pb-28">
+
+    <!-- CABEÇALHO DE NAVEGAÇÃO -->
+    <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-[#402d77]">Lançamento de Apontamentos</h1>
+            <span class="text-gray-400">|</span>
+            <span class="font-medium">{{ conta.apelido }} ({{ conta.cnpj }})</span>
+        </div>
+        <div class="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
+            <a href="{% url 'apontamentos:diario_data' data=data_anterior %}" class="p-2 hover:bg-white rounded-md transition-all"><i class="fa-solid fa-chevron-left"></i></a>
+            <span class="px-4 font-bold">{{ data_ref|date:"d/m/Y" }}</span>
+            <a href="{% url 'apontamentos:diario_data' data=data_proxima %}" class="p-2 hover:bg-white rounded-md transition-all"><i class="fa-solid fa-chevron-right"></i></a>
+        </div>
+    </div>
+
+    <form method="post" id="form-apontamentos">
+        {% csrf_token %}
+        
+        <!-- SEÇÃO DE MÉTRICAS (Rápida) -->
+        <div class="bg-white rounded-lg border border-gray-300 overflow-hidden mb-6">
+            <div class="bg-[#402d77] text-white px-4 py-2 text-sm font-bold uppercase">Indicadores Operacionais</div>
+            {{ metricas_formset.management_form }}
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-0 divide-x divide-gray-200">
+                {% for form, mv in metricas_rows %}
+                <div class="p-3">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">{{ mv.tipo.nome }}</label>
+                    {{ form.valor }}
+                    <div class="hidden">{{ form.id }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- TABELA DE HORA EXTRA (ESTILO IMAGEM) -->
+        {% comment %} 
+            Repetimos essa estrutura para os dois blocos: he_ate21 e he_fds 
+        {% endcomment %}
+
+        <div class="js-he-container bg-white rounded-lg border border-black overflow-hidden mb-8">
+            {{ he_ate21_formset.management_form }}
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-[#402d77] text-white text-sm">
+                        <th class="border border-black px-4 py-3 text-left w-1/4">
+                            <div class="text-lg">{{ data_ref|date:"d/m/Y" }}</div>
+                            <div class="text-xs font-normal">{{ data_ref|date:"l" }} — 18:00 às 21:00</div>
+                        </th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">De 2ª à Sexta até as 21:00</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Sáb/Dom/Feriados e Noturno</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Quant. Colaboradores</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Quant. Horas</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-40">Valor Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form, item in he_ate21_rows %}
+                    <tr class="js-he-row hover:bg-gray-50 text-sm" data-vhh="{{ item.valor_hh|stringformat:".2f" }}">
+                        <td class="border border-black px-4 py-2 font-medium">{{ item.cargo.nome }}</td>
+                        <!-- Coluna valor unitário (Baseado no tipo de HE) -->
+                        <td class="border border-black px-4 py-2 text-right text-gray-600">
+                            {{ item.valor_hh|floatformat:2 }}
+                        </td>
+                        <!-- Coluna oposta (Vazia ou com traço para simular a imagem) -->
+                        <td class="border border-black px-4 py-2 text-center text-gray-300">-</td>
+                        <!-- Inputs -->
+                        <td class="border border-black p-0">{{ form.qtd_colaboradores }}</td>
+                        <td class="border border-black p-0">{{ form.qtd_horas }}</td>
+                        <!-- Resultado -->
+                        <td class="border border-black px-4 py-2 text-right font-bold js-subtotal-item">0,00</td>
+                        <div class="hidden">{{ form.id }}</div>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="bg-gray-100 font-bold">
+                        <td colspan="3" class="border border-black px-4 py-2 text-right uppercase text-xs">Total do Bloco</td>
+                        <td class="border border-black px-4 py-2 text-center bg-[#402d77] text-white js-total-colab-bloco">0</td>
+                        <td class="border border-black px-4 py-2 text-center"></td>
+                        <td class="border border-black px-4 py-2 text-right bg-[#e91e63] text-white js-total-valor-bloco">0,00</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- REPETIR O MESMO PARA O SEGUNDO BLOCO (FDS) SE NECESSÁRIO OU REMOVER SE FOR DIA ÚTIL -->
+        {% if he_fds_rows %}
+        <div class="js-he-container bg-white rounded-lg border border-black overflow-hidden mb-8">
+            {{ he_fds_formset.management_form }}
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-[#402d77] text-white text-sm">
+                        <th class="border border-black px-4 py-3 text-left w-1/4 uppercase">Sábado, Domingo e Feriados</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">De 2ª à Sexta</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Sáb/Dom/Feriados</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Quant. Colaboradores</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Quant. Horas</th>
+                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-40">Valor Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form, item in he_fds_rows %}
+                    <tr class="js-he-row hover:bg-gray-50 text-sm" data-vhh="{{ item.valor_hh|stringformat:".2f" }}">
+                        <td class="border border-black px-4 py-2 font-medium">{{ item.cargo.nome }}</td>
+                        <td class="border border-black px-4 py-2 text-center text-gray-300">-</td>
+                        <td class="border border-black px-4 py-2 text-right text-gray-600">{{ item.valor_hh|floatformat:2 }}</td>
+                        <td class="border border-black p-0">{{ form.qtd_colaboradores }}</td>
+                        <td class="border border-black p-0">{{ form.qtd_horas }}</td>
+                        <td class="border border-black px-4 py-2 text-right font-bold js-subtotal-item">0,00</td>
+                        <div class="hidden">{{ form.id }}</div>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="bg-gray-100 font-bold">
+                        <td colspan="3" class="border border-black px-4 py-2 text-right uppercase text-xs">Total FDS</td>
+                        <td class="border border-black px-4 py-2 text-center bg-[#402d77] text-white js-total-colab-bloco">0</td>
+                        <td class="border border-black px-4 py-2 text-center"></td>
+                        <td class="border border-black px-4 py-2 text-right bg-[#e91e63] text-white js-total-valor-bloco">0,00</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- BOTÃO SALVAR (FIXO) -->
+        <div class="fixed bottom-0 left-0 right-0 md:left-64 bg-white border-t border-gray-300 p-4 shadow-2xl flex justify-between items-center z-50">
+            <div class="flex gap-8">
+                <div>
+                    <span class="text-[10px] font-bold uppercase text-gray-400">Total Colaboradores</span>
+                    <div class="text-xl font-bold text-[#402d77]" id="js-total-geral-colab">0</div>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold uppercase text-gray-400">Total Geral do Dia</span>
+                    <div class="text-xl font-bold text-[#e91e63]" id="js-total-geral-valor">R$ 0,00</div>
+                </div>
+            </div>
+            <button type="submit" class="bg-[#402d77] text-white px-12 py-3 rounded font-bold hover:bg-black transition-all">
+                SALVAR APONTAMENTOS
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* Estilo para parecer Excel */
+    input[type="number"], input[type="text"] {
+        width: 100%;
+        height: 100%;
+        border: none !important;
+        background: transparent;
+        text-align: center;
+        font-weight: bold;
+        padding: 8px;
+    }
+    input:focus {
+        background-color: #fff9c4 !important; /* Amarelo clarinho ao focar, estilo Excel */
+        outline: none;
+    }
+    /* Tirar setas do input */
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
+        -webkit-appearance: none; margin: 0;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fmt = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const parse = (i) => i ? parseFloat(i.value.replace(',', '.')) || 0 : 0;
+
+    function calcular() {
+        let geralValor = 0;
+        let geralColab = 0;
+
+        document.querySelectorAll('.js-he-container').forEach(container => {
+            let blocoValor = 0;
+            let blocoColab = 0;
+
+            container.querySelectorAll('.js-he-row').forEach(row => {
+                const vhh = parseFloat(row.dataset.vhh) || 0;
+                const colab = parse(row.querySelector('input[name*="qtd_colaboradores"]'));
+                const horas = parse(row.querySelector('input[name*="qtd_horas"]'));
+                
+                const subtotal = vhh * colab * horas;
+                blocoValor += subtotal;
+                blocoColab += colab;
+
+                row.querySelector('.js-subtotal-item').textContent = fmt(subtotal);
+            });
+
+            // Atualiza footer do bloco
+            container.querySelector('.js-total-colab-bloco').textContent = blocoColab;
+            container.querySelector('.js-total-valor-bloco').textContent = fmt(blocoValor);
+            
+            geralValor += blocoValor;
+            geralColab += blocoColab;
+        });
+
+        // Atualiza footer geral
+        document.getElementById('js-total-geral-colab').textContent = geralColab;
+        document.getElementById('js-total-geral-valor').textContent = 'R$ ' + fmt(geralValor);
+    }
+
+    document.getElementById('form-apontamentos').addEventListener('input', calcular);
+    calcular();
+});
+</script>
+{% endblock %}
