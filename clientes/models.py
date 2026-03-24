@@ -53,7 +53,7 @@ class ContaFaturamento(models.Model):
 class ConfigContaFaturamento(models.Model):
     """
     Configurações que mudam por CNPJ (ContaFaturamento).
-    Aqui é onde você resolve PP vs PK (e no futuro peso etc.) sem hardcode.
+    Aqui é onde você resolve PP vs PK (e no futuro layout do relatório etc.) sem hardcode.
     """
     METODO_ARMAZENAGEM_CHOICES = [
         ("PALLET_UNICO", "Armazenagem por pallet único (distinct local)"),
@@ -83,7 +83,17 @@ class ConfigContaFaturamento(models.Model):
     # se você quiser manter a regra de só contar se tiver estoque
     somente_com_estoque = models.BooleanField(default=True)
 
+    # ✅ NOVO: configuração do relatório (layout/linhas/ISS/branding) por CNPJ
+    # Exemplo:
+    # {
+    #   "theme": {"brand_right":"KRATON","accent":"#0c2a3a","section_title":"Armazenagem"},
+    #   "iss_percent":"2.00",
+    #   "linhas":[{"servico":"Ad-valorem","tipo":"PERCENTUAL","taxa":"0.1400","qtd_source":"WMS_PICO_BASE"}]
+    # }
+    relatorio_config = models.JSONField(default=dict, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)  # opcional, mas útil
 
     def __str__(self):
         return f"Config {self.conta}"
@@ -93,7 +103,7 @@ class UserConta(models.Model):
     """
     Opcional:
     - Se TODOS usuários podem ver TODAS empresas, você pode nem usar isso agora.
-    - Eu estou mantendo porque você já criou e pode querer no futuro.
+    - Mantido para futuro.
     """
     ROLE_CHOICES = [
         ("ADMIN", "Admin"),

@@ -1,213 +1,331 @@
 {% extends "base.html" %}
 
-{% block subtitle %}Apontamento - {{ data_ref|date:"d/m/Y" }}{% endblock %}
+{% block subtitle %}Apontamento Diário — {{ conta.apelido }}{% endblock %}
+
+{% block top_actions %}
+  <a href="{% url 'apontamentos:diario_data' data=data_anterior %}"
+     class="px-2.5 py-1.5 rounded-xl border border-graphite/10 bg-white hover:bg-lilas/10 text-xs font-extrabold">‹</a>
+
+  <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-graphite/10 bg-white">
+    <span class="text-[10px] font-extrabold text-graphite/60">Data</span>
+    <input id="js-date-picker"
+           type="date"
+           value="{{ data_ref|date:'Y-m-d' }}"
+           data-url-template="{% url 'apontamentos:diario_data' data='__DATE__' %}"
+           class="w-[8.7rem] bg-transparent outline-none text-xs font-extrabold text-graphite">
+  </div>
+
+  <a href="{% url 'apontamentos:diario_data' data=data_proxima %}"
+     class="px-2.5 py-1.5 rounded-xl border border-graphite/10 bg-white hover:bg-lilas/10 text-xs font-extrabold">›</a>
+
+  <button type="submit" form="form-apontamentos"
+          class="inline-flex items-center gap-2 rounded-xl bg-lilas px-3 py-1.5 text-white text-xs font-extrabold hover:opacity-90 transition">
+    💾 <span>Salvar</span>
+  </button>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-6 pb-28">
+<div class="w-full space-y-3 pb-4 overflow-x-hidden">
+  <form method="post" id="form-apontamentos" class="space-y-3">
+    {% csrf_token %}
 
-    <!-- CABEÇALHO DE NAVEGAÇÃO -->
-    <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div class="flex items-center gap-4">
-            <h1 class="text-xl font-bold text-[#402d77]">Lançamento de Apontamentos</h1>
-            <span class="text-gray-400">|</span>
-            <span class="font-medium">{{ conta.apelido }} ({{ conta.cnpj }})</span>
+    <!-- Tabs principais -->
+    <div class="rounded-xl2 border border-graphite/10 bg-white shadow-soft p-1.5">
+      <div class="flex items-center gap-2">
+        <button type="button" class="js-tab tab-btn tab-active" data-tab="metricas">Métricas</button>
+        <button type="button" class="js-tab tab-btn tab-inactive" data-tab="he">Horas Extras</button>
+        <div class="flex-1"></div>
+
+        <div class="hidden md:flex items-center gap-4 pr-1">
+          <div class="text-right">
+            <div class="text-[9px] font-extrabold text-graphite/50 uppercase leading-none">Colab.</div>
+            <div class="text-xs font-extrabold text-lilas leading-tight" id="js-total-colab">0</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[9px] font-extrabold text-graphite/50 uppercase leading-none">Total HE</div>
+            <div class="text-xs font-extrabold text-magenta leading-tight" id="js-total-he">R$ 0,00</div>
+          </div>
         </div>
-        <div class="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
-            <a href="{% url 'apontamentos:diario_data' data=data_anterior %}" class="p-2 hover:bg-white rounded-md transition-all"><i class="fa-solid fa-chevron-left"></i></a>
-            <span class="px-4 font-bold">{{ data_ref|date:"d/m/Y" }}</span>
-            <a href="{% url 'apontamentos:diario_data' data=data_proxima %}" class="p-2 hover:bg-white rounded-md transition-all"><i class="fa-solid fa-chevron-right"></i></a>
-        </div>
+      </div>
     </div>
 
-    <form method="post" id="form-apontamentos">
-        {% csrf_token %}
-        
-        <!-- SEÇÃO DE MÉTRICAS (Rápida) -->
-        <div class="bg-white rounded-lg border border-gray-300 overflow-hidden mb-6">
-            <div class="bg-[#402d77] text-white px-4 py-2 text-sm font-bold uppercase">Indicadores Operacionais</div>
-            {{ metricas_formset.management_form }}
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-0 divide-x divide-gray-200">
-                {% for form, mv in metricas_rows %}
-                <div class="p-3">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">{{ mv.tipo.nome }}</label>
-                    {{ form.valor }}
-                    <div class="hidden">{{ form.id }}</div>
-                </div>
-                {% endfor %}
+    <!-- PANEL: MÉTRICAS -->
+    <section class="js-panel" data-panel="metricas">
+      <div class="rounded-xl2 border border-graphite/10 bg-white shadow-soft overflow-hidden">
+        <div class="px-3 py-2 border-b border-graphite/10 flex items-center justify-between">
+          <div class="text-xs font-extrabold text-graphite">Métricas</div>
+          <div class="text-[9px] font-extrabold text-graphite/50 uppercase">rápido</div>
+        </div>
+
+        {{ metricas_formset.management_form }}
+
+        {# Sub-abas por categoria #}
+        {% if metricas_grupos and metricas_grupos|length > 1 %}
+          <div class="px-2.5 py-2 border-b border-graphite/10 bg-white">
+            <div class="flex flex-wrap gap-2">
+              {% for cat, rows in metricas_grupos %}
+                <button type="button"
+                        class="js-mcat mcat-btn {% if forloop.first %}mcat-active{% else %}mcat-inactive{% endif %}"
+                        data-mcat="{{ forloop.counter0 }}">
+                  {{ cat }}
+                </button>
+              {% endfor %}
             </div>
-        </div>
-
-        <!-- TABELA DE HORA EXTRA (ESTILO IMAGEM) -->
-        {% comment %} 
-            Repetimos essa estrutura para os dois blocos: he_ate21 e he_fds 
-        {% endcomment %}
-
-        <div class="js-he-container bg-white rounded-lg border border-black overflow-hidden mb-8">
-            {{ he_ate21_formset.management_form }}
-            <table class="w-full border-collapse">
-                <thead>
-                    <tr class="bg-[#402d77] text-white text-sm">
-                        <th class="border border-black px-4 py-3 text-left w-1/4">
-                            <div class="text-lg">{{ data_ref|date:"d/m/Y" }}</div>
-                            <div class="text-xs font-normal">{{ data_ref|date:"l" }} — 18:00 às 21:00</div>
-                        </th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">De 2ª à Sexta até as 21:00</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Sáb/Dom/Feriados e Noturno</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Quant. Colaboradores</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Quant. Horas</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-40">Valor Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for form, item in he_ate21_rows %}
-                    <tr class="js-he-row hover:bg-gray-50 text-sm" data-vhh="{{ item.valor_hh|stringformat:".2f" }}">
-                        <td class="border border-black px-4 py-2 font-medium">{{ item.cargo.nome }}</td>
-                        <!-- Coluna valor unitário (Baseado no tipo de HE) -->
-                        <td class="border border-black px-4 py-2 text-right text-gray-600">
-                            {{ item.valor_hh|floatformat:2 }}
-                        </td>
-                        <!-- Coluna oposta (Vazia ou com traço para simular a imagem) -->
-                        <td class="border border-black px-4 py-2 text-center text-gray-300">-</td>
-                        <!-- Inputs -->
-                        <td class="border border-black p-0">{{ form.qtd_colaboradores }}</td>
-                        <td class="border border-black p-0">{{ form.qtd_horas }}</td>
-                        <!-- Resultado -->
-                        <td class="border border-black px-4 py-2 text-right font-bold js-subtotal-item">0,00</td>
-                        <div class="hidden">{{ form.id }}</div>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr class="bg-gray-100 font-bold">
-                        <td colspan="3" class="border border-black px-4 py-2 text-right uppercase text-xs">Total do Bloco</td>
-                        <td class="border border-black px-4 py-2 text-center bg-[#402d77] text-white js-total-colab-bloco">0</td>
-                        <td class="border border-black px-4 py-2 text-center"></td>
-                        <td class="border border-black px-4 py-2 text-right bg-[#e91e63] text-white js-total-valor-bloco">0,00</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-
-        <!-- REPETIR O MESMO PARA O SEGUNDO BLOCO (FDS) SE NECESSÁRIO OU REMOVER SE FOR DIA ÚTIL -->
-        {% if he_fds_rows %}
-        <div class="js-he-container bg-white rounded-lg border border-black overflow-hidden mb-8">
-            {{ he_fds_formset.management_form }}
-            <table class="w-full border-collapse">
-                <thead>
-                    <tr class="bg-[#402d77] text-white text-sm">
-                        <th class="border border-black px-4 py-3 text-left w-1/4 uppercase">Sábado, Domingo e Feriados</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">De 2ª à Sexta</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Sáb/Dom/Feriados</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Quant. Colaboradores</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-32">Quant. Horas</th>
-                        <th class="border border-black px-4 py-3 text-center text-xs uppercase w-40">Valor Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for form, item in he_fds_rows %}
-                    <tr class="js-he-row hover:bg-gray-50 text-sm" data-vhh="{{ item.valor_hh|stringformat:".2f" }}">
-                        <td class="border border-black px-4 py-2 font-medium">{{ item.cargo.nome }}</td>
-                        <td class="border border-black px-4 py-2 text-center text-gray-300">-</td>
-                        <td class="border border-black px-4 py-2 text-right text-gray-600">{{ item.valor_hh|floatformat:2 }}</td>
-                        <td class="border border-black p-0">{{ form.qtd_colaboradores }}</td>
-                        <td class="border border-black p-0">{{ form.qtd_horas }}</td>
-                        <td class="border border-black px-4 py-2 text-right font-bold js-subtotal-item">0,00</td>
-                        <div class="hidden">{{ form.id }}</div>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr class="bg-gray-100 font-bold">
-                        <td colspan="3" class="border border-black px-4 py-2 text-right uppercase text-xs">Total FDS</td>
-                        <td class="border border-black px-4 py-2 text-center bg-[#402d77] text-white js-total-colab-bloco">0</td>
-                        <td class="border border-black px-4 py-2 text-center"></td>
-                        <td class="border border-black px-4 py-2 text-right bg-[#e91e63] text-white js-total-valor-bloco">0,00</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
+          </div>
         {% endif %}
 
-        <!-- BOTÃO SALVAR (FIXO) -->
-        <div class="fixed bottom-0 left-0 right-0 md:left-64 bg-white border-t border-gray-300 p-4 shadow-2xl flex justify-between items-center z-50">
-            <div class="flex gap-8">
-                <div>
-                    <span class="text-[10px] font-bold uppercase text-gray-400">Total Colaboradores</span>
-                    <div class="text-xl font-bold text-[#402d77]" id="js-total-geral-colab">0</div>
+        <div class="p-2.5">
+          {% if metricas_grupos %}
+            {% for cat, rows in metricas_grupos %}
+              <div class="js-mcat-panel {% if metricas_grupos|length > 1 and not forloop.first %}hidden{% endif %}"
+                   data-mcat-panel="{{ forloop.counter0 }}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  {% for form, mv in rows %}
+                    <div class="rounded-xl border border-graphite/10 bg-offwhite p-2.5 flex items-center justify-between gap-2">
+                      <div class="min-w-0">
+                        <div class="text-[11px] font-extrabold text-graphite truncate">{{ mv.tipo.nome }}</div>
+                      </div>
+                      <div class="w-20">
+                        {{ form.valor }}
+                        <div class="hidden">{{ form.id }}</div>
+                      </div>
+                    </div>
+                  {% endfor %}
                 </div>
-                <div>
-                    <span class="text-[10px] font-bold uppercase text-gray-400">Total Geral do Dia</span>
-                    <div class="text-xl font-bold text-[#e91e63]" id="js-total-geral-valor">R$ 0,00</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <!-- fallback -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {% for form, mv in metricas_rows %}
+                <div class="rounded-xl border border-graphite/10 bg-offwhite p-2.5 flex items-center justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="text-[11px] font-extrabold text-graphite truncate">{{ mv.tipo.nome }}</div>
+                  </div>
+                  <div class="w-20">
+                    {{ form.valor }}
+                    <div class="hidden">{{ form.id }}</div>
+                  </div>
                 </div>
+              {% empty %}
+                <div class="text-xs text-graphite/60">Nenhuma métrica cadastrada.</div>
+              {% endfor %}
             </div>
-            <button type="submit" class="bg-[#402d77] text-white px-12 py-3 rounded font-bold hover:bg-black transition-all">
-                SALVAR APONTAMENTOS
-            </button>
+          {% endif %}
         </div>
-    </form>
+
+        <div class="px-2.5 pb-2.5">
+          <div class="text-[9px] font-extrabold text-graphite/50 uppercase">Observação</div>
+          <div class="mt-1">{{ diario_form.observacao }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANEL: HORAS EXTRAS -->
+    <section class="js-panel hidden" data-panel="he">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+
+        <div class="js-he-container rounded-xl2 border border-graphite/10 bg-white shadow-soft p-3">
+          {{ he_ate21_formset.management_form }}
+          <div class="flex items-start justify-between gap-2">
+            <div class="text-sm font-extrabold text-graphite">2ª–6ª • 18:00–21:00</div>
+            <div class="text-[10px] font-extrabold text-graphite/60">
+              Total: <span class="js-total-bloco text-lilas">R$ 0,00</span>
+            </div>
+          </div>
+
+          <div class="mt-3 space-y-2">
+            {% for form, item in he_ate21_rows %}
+              <div class="js-he-row rounded-xl border border-graphite/10 bg-offwhite px-3 py-2 flex items-center justify-between gap-2"
+                   data-vhh="{{ item.valor_hh }}">
+                <div class="text-xs font-extrabold text-graphite truncate max-w-[12rem] md:max-w-[16rem]">
+                  {{ item.cargo.nome }}
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-16">{{ form.qtd_colaboradores }}</div>
+                  <div class="w-16">{{ form.qtd_horas }}</div>
+                </div>
+                <div class="hidden">{{ form.id }}</div>
+              </div>
+            {% empty %}
+              <div class="text-xs text-graphite/60">Sem itens.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="js-he-container rounded-xl2 border border-graphite/10 bg-white shadow-soft p-3">
+          {{ he_fds_formset.management_form }}
+          <div class="flex items-start justify-between gap-2">
+            <div class="text-sm font-extrabold text-graphite">Sábado/Domingo/Feriados • após 21:00</div>
+            <div class="text-[10px] font-extrabold text-graphite/60">
+              Total: <span class="js-total-bloco text-magenta">R$ 0,00</span>
+            </div>
+          </div>
+
+          <div class="mt-3 space-y-2">
+            {% for form, item in he_fds_rows %}
+              <div class="js-he-row rounded-xl border border-graphite/10 bg-offwhite px-3 py-2 flex items-center justify-between gap-2"
+                   data-vhh="{{ item.valor_hh }}">
+                <div class="text-xs font-extrabold text-graphite truncate max-w-[12rem] md:max-w-[16rem]">
+                  {{ item.cargo.nome }}
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-16">{{ form.qtd_colaboradores }}</div>
+                  <div class="w-16">{{ form.qtd_horas }}</div>
+                </div>
+                <div class="hidden">{{ form.id }}</div>
+              </div>
+            {% empty %}
+              <div class="text-xs text-graphite/60">Sem itens.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </form>
 </div>
 
 <style>
-    /* Estilo para parecer Excel */
-    input[type="number"], input[type="text"] {
-        width: 100%;
-        height: 100%;
-        border: none !important;
-        background: transparent;
-        text-align: center;
-        font-weight: bold;
-        padding: 8px;
-    }
-    input:focus {
-        background-color: #fff9c4 !important; /* Amarelo clarinho ao focar, estilo Excel */
-        outline: none;
-    }
-    /* Tirar setas do input */
-    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
-        -webkit-appearance: none; margin: 0;
-    }
+  input[type="number"], input[type="text"], textarea {
+    width: 100%;
+    border: 1px solid rgba(65,64,66,.18);
+    border-radius: 0.75rem;
+    padding: .38rem .55rem;
+    font-weight: 800;
+    background: #fff;
+    outline: none;
+    font-size: 12px;
+    line-height: 1.1;
+  }
+  textarea{ min-height: 34px; }
+  input:focus, textarea:focus{
+    box-shadow: 0 0 0 3px rgba(66,44,118,0.10);
+    border-color: rgba(66,44,118,0.40);
+  }
+
+  .js-he-container input[type="number"], .js-he-container input[type="text"]{
+    text-align: center;
+    font-weight: 900;
+    padding: .42rem .55rem;
+    border-radius: 0.8rem;
+    font-size: 12px;
+    line-height: 1.1;
+  }
+
+  .tab-btn{
+    padding: .45rem .85rem;
+    border-radius: 0.85rem;
+    font-weight: 900;
+    font-size: 0.8rem;
+    border: 1px solid rgba(65,64,66,.12);
+  }
+  .tab-active{ background: #422c76; color: #fff; border-color: transparent; }
+  .tab-inactive{ background: #fff; color: #414042; }
+
+  .mcat-btn{
+    padding: .35rem .7rem;
+    border-radius: 0.75rem;
+    font-weight: 900;
+    font-size: 0.75rem;
+    border: 1px solid rgba(65,64,66,.12);
+  }
+  .mcat-active{ background: #422c76; color: #fff; border-color: transparent; }
+  .mcat-inactive{ background: #fff; color: #414042; }
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const fmt = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const parse = (i) => i ? parseFloat(i.value.replace(',', '.')) || 0 : 0;
+document.addEventListener('DOMContentLoaded', function () {
+  // date picker
+  const dp = document.getElementById('js-date-picker');
+  if (dp) {
+    dp.addEventListener('change', () => {
+      const v = dp.value;
+      if (!v) return;
+      const tpl = dp.dataset.urlTemplate || '';
+      if (tpl.includes('__DATE__')) window.location.href = tpl.replace('__DATE__', encodeURIComponent(v));
+    });
+  }
 
-    function calcular() {
-        let geralValor = 0;
-        let geralColab = 0;
+  // tabs principais
+  const tabs = document.querySelectorAll('.js-tab');
+  const panels = document.querySelectorAll('.js-panel');
+  function setTab(name){
+    tabs.forEach(b => {
+      const active = b.dataset.tab === name;
+      b.classList.toggle('tab-active', active);
+      b.classList.toggle('tab-inactive', !active);
+    });
+    panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name));
+  }
+  tabs.forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  setTab('metricas');
 
-        document.querySelectorAll('.js-he-container').forEach(container => {
-            let blocoValor = 0;
-            let blocoColab = 0;
+  // sub-abas categoria
+  const mcatBtns = document.querySelectorAll('.js-mcat');
+  const mcatPanels = document.querySelectorAll('.js-mcat-panel');
+  function setCat(key){
+    mcatBtns.forEach(b => {
+      const active = b.dataset.mcat === key;
+      b.classList.toggle('mcat-active', active);
+      b.classList.toggle('mcat-inactive', !active);
+    });
+    mcatPanels.forEach(p => p.classList.toggle('hidden', p.dataset.mcatPanel !== key));
+  }
+  if (mcatBtns.length) {
+    mcatBtns.forEach(b => b.addEventListener('click', () => setCat(b.dataset.mcat)));
+    setCat(mcatBtns[0].dataset.mcat);
+  }
 
-            container.querySelectorAll('.js-he-row').forEach(row => {
-                const vhh = parseFloat(row.dataset.vhh) || 0;
-                const colab = parse(row.querySelector('input[name*="qtd_colaboradores"]'));
-                const horas = parse(row.querySelector('input[name*="qtd_horas"]'));
-                
-                const subtotal = vhh * colab * horas;
-                blocoValor += subtotal;
-                blocoColab += colab;
+  // cálculo HE
+  const fmt = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const parseNum = (val) => {
+    if (val === null || val === undefined) return 0;
+    let s = String(val).trim();
+    if (!s) return 0;
+    s = s.replace(/[^\d.,-]/g, '');
+    if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+    else s = s.replace(',', '.');
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  };
 
-                row.querySelector('.js-subtotal-item').textContent = fmt(subtotal);
-            });
+  document.querySelectorAll('.js-he-container').forEach(container => {
+    container.querySelectorAll('input[name*="qtd_colaboradores"]').forEach(i => {
+      i.placeholder = 'Qtd'; i.classList.add('js-colab'); i.inputMode = 'numeric'; i.min = 0;
+    });
+    container.querySelectorAll('input[name*="qtd_horas"]').forEach(i => {
+      i.placeholder = 'Hrs'; i.classList.add('js-horas'); i.inputMode = 'decimal'; i.step = '0.25'; i.min = 0;
+    });
+  });
 
-            // Atualiza footer do bloco
-            container.querySelector('.js-total-colab-bloco').textContent = blocoColab;
-            container.querySelector('.js-total-valor-bloco').textContent = fmt(blocoValor);
-            
-            geralValor += blocoValor;
-            geralColab += blocoColab;
-        });
+  function calcularHE(){
+    let totalGeral = 0;
+    let totalColab = 0;
 
-        // Atualiza footer geral
-        document.getElementById('js-total-geral-colab').textContent = geralColab;
-        document.getElementById('js-total-geral-valor').textContent = 'R$ ' + fmt(geralValor);
-    }
+    document.querySelectorAll('.js-he-container').forEach(container => {
+      let totalBloco = 0;
+      container.querySelectorAll('.js-he-row').forEach(row => {
+        const vhh = parseNum(row.dataset.vhh);
+        const colab = parseNum(row.querySelector('.js-colab')?.value);
+        const horas = parseNum(row.querySelector('.js-horas')?.value);
+        const sub = vhh * colab * horas;
+        totalBloco += sub; totalGeral += sub; totalColab += colab;
+      });
 
-    document.getElementById('form-apontamentos').addEventListener('input', calcular);
-    calcular();
+      const blocoEl = container.querySelector('.js-total-bloco');
+      if (blocoEl) blocoEl.textContent = 'R$ ' + fmt(totalBloco);
+    });
+
+    const a = document.getElementById('js-total-he');
+    const c = document.getElementById('js-total-colab');
+    if (a) a.textContent = 'R$ ' + fmt(totalGeral);
+    if (c) c.textContent = totalColab;
+  }
+
+  document.getElementById('form-apontamentos').addEventListener('input', calcularHE);
+  calcularHE();
 });
 </script>
 {% endblock %}
